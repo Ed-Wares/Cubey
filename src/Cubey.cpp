@@ -375,7 +375,7 @@ int main() {
 
     // --- 6. Font Loading and Text Rendering Setup ---
     textShaderProgram = createShaderProgram(textVertexShaderSource, textFragmentShaderSource);
-    loadFont("arial.ttf"); // Make sure arial.ttf is in your project root
+    loadFont("font.ttf"); // Make sure font.ttf is in your project or exe root
 
     // Random rotation speeds
     std::mt19937 gen(std::random_device{}()); // Random number generator
