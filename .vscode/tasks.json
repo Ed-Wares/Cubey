@@ -1,0 +1,60 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure CMake (Debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_TOOLCHAIN_FILE=${config:cmake.vcpkg.toolchainPath}"
+            ],
+            "problemMatcher": [],
+            "detail": "Generates Debug build files using vcpkg."
+        },
+        {
+            "label": "Build Project (Debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Compiles the project in Debug mode."
+        },
+        {
+            "label": "Wait for Executable",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                // IMPORTANT: Update 'Cubey.exe' to match your launch.json
+                "Write-Host 'Waiting for exe...'; while (!(Test-Path '${workspaceFolder}/build/debug/Cubey.exe')) { Start-Sleep -Seconds 1 }; Write-Host 'Executable found!'"
+            ],
+            "problemMatcher": [],
+            "detail": "Waits until the executable file is created by the build process."
+        },
+        {
+            "label": "Build & Configure (Debug)",
+            "dependsOn": [
+                "Configure CMake (Debug)",
+                "Build Project (Debug)"
+            ],
+            "dependsOrder": "sequence", // Run tasks in order
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "A compound task to configure and build for debugging."
+        }
+    ]
+}
