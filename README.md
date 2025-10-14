@@ -1,5 +1,5 @@
 # Cubey
-Cubey is a basic OpenGL Application written in C++.  It simply displays a rotating cube (named Cubey), which can be rotated further using the keyboard arrow keys.  The example also renders a simple text overlay above the cube.  The application is using more modern OpenGL 3.3 with shaders for both the cube and the text.
+Cubey is a basic cross-platform OpenGL Application written in C++.  It simply displays a rotating cube (named Cubey), which can be rotated further using the keyboard arrow keys.  The example also renders a simple text overlay above the cube.  The application loads a smiley face texture on one side of the cube.  This was written using more modern OpenGL 3.3 with shaders for both the cube and the text.
 
 ### Demo
 
@@ -14,6 +14,7 @@ It uses CMake for building and GLM for mathematical operations.
 - GLFW: A lightweight, cross-platform library for creating OpenGL contexts, windows, and handling input. It's often preferred over SDL for pure OpenGL development due to its simplicity and focus.
 - GLAD: Essential for loading OpenGL function pointers at runtime, allowing you to use modern OpenGL features (like shaders, VBOs, VAOs).
 - GLM: Provides essential matrix and vector math operations for 3D graphics.
+- stb: Load fonts and images with the popular single-header library stb.
 
 ### The 2D Rendered Text Overlay (HUD)
 - Separate Shaders: The text needs its own shaders because it's fundamentally different from the 3D cube. The cube uses a perspective projection (things farther away are smaller), while the text uses an orthographic projection (a flat, 2D view with no perspective).
@@ -57,10 +58,11 @@ Prerequesites required for building source
     - Options: Make sure Generate a loader is checked.
   - Click Generate to download the .zip.
   - Unzip and copy the include and src folders into a ```vendor/glad``` directory in your project's root.
-- Optionally, to update stb_truetype library.
-  - Download stb_truetype.h: Go to the stb single-file libraries repository and download [stb_truetype.h](https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_truetype.h). Place it in a new directory in your project, for example, ```vendor/stb/```
+- Optionally, to update stb_truetype and stb_image headers.
+  - Download stb_truetype.h and stb_image.h: Go to the stb single-file libraries repository and download [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h) and [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h).  Place them in the directory ```vendor/stb/```.
+  - Create an Implementation File: To avoid linker errors, it's best practice to create a separate C++ file that defines the implementation for stb_truetype and stb_image. ```src/stb_impl.cpp```
   - Download a Font: You need a .ttf font file. You can use a standard system font (like arial.ttf from your Windows Fonts directory)
-  - Create an Implementation File: To avoid linker errors, it's best practice to create a separate C++ file that defines the implementation for stb_truetype. ```src/stb_impl.cpp```
+  - Download a Texture image: Create or download a simple smiley face image. Save it as smiley.png in your project's root directory
 
 Build binaries by running the ```build.bat``` script or from VsCode by running the Build and Debug Task.
 

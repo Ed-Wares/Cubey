@@ -13,6 +13,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "stb_truetype.h" // For font rendering
+#include "stb_image.h"  // For image loading
 
 #define WIN_WIDTH 900
 #define WIN_HEIGHT 700
@@ -22,6 +23,8 @@ GLuint textVAO, textVBO;
 GLuint textShaderProgram;
 stbtt_bakedchar charData[96];
 GLuint fontTexture;
+
+GLuint cubeTexture; // Texture for the cube
 
 // --- Callback for GLFW window resize events ---
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -47,24 +50,32 @@ const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aColor;
+    layout (location = 2) in vec2 aTexCoord; // New texture coordinate attribute
 
     out vec3 ourColor;
+    out vec2 TexCoord; // Pass texture coordinate to fragment shader
 
-    uniform mat4 mvp; // Model-View-Projection Matrix
+    uniform mat4 mvp;
 
     void main() {
         gl_Position = mvp * vec4(aPos, 1.0);
         ourColor = aColor;
+        TexCoord = aTexCoord;
     }
 )";
 
 const char* fragmentShaderSource = R"(
     #version 330 core
     out vec4 FragColor;
+
     in vec3 ourColor;
+    in vec2 TexCoord; // Receive texture coordinate from vertex shader
+
+    uniform sampler2D ourTexture; // The texture sampler
 
     void main() {
-        FragColor = vec4(ourColor, 1.0);
+        // Mix the texture color with the vertex color
+        FragColor = texture(ourTexture, TexCoord) * vec4(ourColor, 1.0);
     }
 )";
 
@@ -218,6 +229,31 @@ void renderText(const std::string& text, float x, float y, float scale) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+//  --- Texture Loading Function ---
+void loadTexture(const char* path, GLuint& textureID) {
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    // Set texture wrapping/filtering options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Load image data using stb_image
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(true); // Flip the image vertically to match OpenGL's coordinate system
+    unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data) {
+        GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cerr << "Failed to load texture: " << path << std::endl;
+    }
+    stbi_image_free(data); // Free the image memory
+}
+
 // --- Main Function ---
 int main() {
     // --- 1. Initialize GLFW ---
@@ -251,42 +287,47 @@ int main() {
     }
     
     // Enable depth testing and blending for 3D and text rendering
+    
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND); // Enable blending for text transparency.
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // --- 4. Define Cube Geometry ---
+    // Each vertex now has 8 floats: X, Y, Z, R, G, B, U, V
+    // We'll add texture coordinates (U,V) ONLY for the front face (green face).
+    // Other faces will have (0,0) as their texture coordinates.
     float vertices[] = {
-        // positions          // colors
-        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f, // Red face
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+        // positions          // colors (RGB)    // texture coords
+        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, // Red face
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,
 
-        -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, // Green face
-         0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
+        // Front face (white) - WITH TEXTURE COORDS
+        -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f, // Bottom-left
+         0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f, // Bottom-right
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f, // Top-right
+        -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f, // Top-left
 
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, // Blue face (left)
-        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // Blue face (left)
+        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
 
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, // Yellow face (right)
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, // Green face (right)
+         0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
 
-        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, // Magenta face (bottom)
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f,  0.0f, 0.0f, // Orange face (bottom)
+         0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.5f, 0.0f,  0.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  1.0f, 0.5f, 0.0f,  0.0f, 0.0f,
 
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 1.0f, // Cyan face (top)
-         0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 1.0f
+        -0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 1.0f,  0.0f, 0.0f, // Cyan face (top)
+         0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 1.0f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 1.0f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 1.0f,  0.0f, 0.0f,
     };
     unsigned int indices[] = {
         0, 1, 2, 2, 3, 0, // Face 1
@@ -310,12 +351,21 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
+    // The stride is now 8 floats (3 pos, 3 color, 2 tex)
+    const int stride = 8 * sizeof(float);
+
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
     // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // Texture attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    // --- Load the smiley texture ---
+    loadTexture("smiley.png", cubeTexture);
 
     // --- 5. Compile Shaders and Set Up Matrices ---
     GLuint cubeShaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
@@ -351,6 +401,12 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(cubeShaderProgram);
+        
+        // --- Bind the texture before drawing ---
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        // Tell the shader which texture unit to use (0)
+        glUniform1i(glGetUniformLocation(cubeShaderProgram, "ourTexture"), 0);
 
         // Update model matrix for rotation
         glm::mat4 model = glm::mat4(1.0f);
@@ -399,6 +455,7 @@ int main() {
     glDeleteVertexArrays(1, &textVAO);
     glDeleteBuffers(1, &textVBO);
     glDeleteProgram(textShaderProgram);
+    glDeleteTextures(1, &cubeTexture); // Delete the cube texture
 
     glfwDestroyWindow(window);
     glfwTerminate(); // Terminate GLFW
