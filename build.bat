@@ -25,6 +25,8 @@ cmake --build . --config Release
 echo copying binaries to the distrib folder...
 copy /Y *.exe "%distrib_dir%"
 copy /Y *.dll "%distrib_dir%"
+copy /Y ..\font.ttf "%distrib_dir%"
+copy /Y ..\smiley.png "%distrib_dir%"
 popd
 
 pushd "%distrib_dir%.." && C:\msys64\usr\bin\zip.exe -r %prj_name%.zip %prj_name% && popd
